@@ -1,0 +1,48 @@
+# .NET Desktop
+# Build and run tests for .NET Desktop or Windows classic desktop solutions.
+# Add steps that publish symbols, save build artifacts, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/apps/windows/dot-net
+
+trigger:
+- master
+
+pool:
+  name: Azure Pipelines
+  vmImage: 'windows-latest'
+  demands:
+  - msbuild
+  - visualstudio
+
+variables:
+  Solution: '**/*.sln'
+  Platform: 'Any CPU'
+  Configuration: 'Release'
+
+steps:
+- task: UseDotNet@2
+  displayName: 'Install .NET 10 SDK'
+  inputs:
+    version: '10.x'
+    includePreviewVersions: true
+
+- task: NuGetToolInstaller@1
+
+- task: DotNetCoreCLI@2
+  displayName: 'Restore'
+  inputs:
+    command: 'restore'
+    projects: '$(Solution)'
+
+- task: DotNetCoreCLI@2
+  displayName: 'Build project'
+  inputs:
+    command: 'build'
+    projects: '$(Solution)'
+    arguments: '--configuration $(Configuration)'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publish Artifact: SysBot-ACNH-Orders'
+  inputs:
+    PathtoPublish: 'bin\Release\net10.0'
+    ArtifactName: SysBot-ACNH-Orders
+  condition: succeededOrFailed()
