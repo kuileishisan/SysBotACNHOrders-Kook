@@ -1,0 +1,81 @@
+﻿using NHSE.Core;
+using System;
+using System.Collections.Generic;
+
+namespace SysBot.ACNHOrders
+{
+    public class InternalItemTool
+    {
+        private readonly List<ushort> InternalItems;
+
+        public static InternalItemTool CurrentInstance = new();
+
+        public InternalItemTool()
+        {
+            var items = FileUtil.GetEmbeddedResource("SysBot.ACNHOrders.Resources", "InternalHexList.txt");
+            var spl = items.Split(new string[3] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+            InternalItems = new List<ushort>();
+            foreach (var it in spl)
+                InternalItems.Add(ushort.Parse(it, System.Globalization.NumberStyles.HexNumber));
+        }
+
+        public bool IsInternalItem(ushort val) => InternalItems.Contains(val);
+
+        public bool IsSane(IReadOnlyCollection<Item> items, IConfigItem cfg)
+        {
+            if (cfg.SkipDropCheck)
+                return true;
+            foreach (var it in items)
+                if (IsInternalItem(it.ItemId))
+                    return false;
+            return true;
+        }
+
+        public bool IsSaneAfterCorrection(IReadOnlyCollection<Item> items, IConfigItem cfg)
+        {
+            if (cfg.SkipDropCheck)
+                return true;
+            InternalItemCorrector.CorrectItems(items);
+            foreach (var it in items)
+                if (IsInternalItem(it.ItemId))
+                    return false;
+            return true;
+        }
+
+        public List<string> GetUnsafeItemNames(IReadOnlyCollection<Item> items)
+        {
+            var result = new List<string>();
+            foreach (var it in items)
+                if (IsInternalItem(it.ItemId))
+                    result.Add($"{GameInfo.Strings.GetItemName(it.ItemId)} ({it.ItemId:X4})");
+            return result;
+        }
+    }
+
+    public static class InternalItemCorrector
+    {
+        private static readonly Dictionary<ushort, ushort> InternalItemCorrections = new() // Key: Internal Item ID, Value: Corrected Item ID
+        {
+            { 0x02F8, 0x3107 }, // Vine
+            { 0x02F7, 0x3106 }, // Glowing moss
+            { 0x02F6, 0x0A40 }, // Clump of weeds
+            { 0x1E36, 0x0A51 }, // Turnips
+        };
+
+        static ushort CorrectItem(ushort item)
+        {
+            if (InternalItemCorrections.ContainsKey(item))
+                return InternalItemCorrections[item];
+            return item;
+        }
+
+        public static void CorrectItems(IReadOnlyCollection<Item> items)
+        {
+            foreach (var it in items)
+            {
+                it.ItemId = CorrectItem(it.ItemId);
+            }
+        }
+    }
+}
